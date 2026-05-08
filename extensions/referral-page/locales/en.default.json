@@ -1,0 +1,23 @@
+{
+  "pageTitle": "My Referrals",
+  "loading": "Loading your referral info…",
+  "yourCode": "Your Referral Code",
+  "copyCode": "Copy code",
+  "copied": "Copied!",
+  "shareInstructions": "Share this code with friends. They get 20% off their first order, and you earn €7.50 store credit for each referral.",
+  "referrals": "Successful Referrals",
+  "balance": "Available Balance",
+  "redeem": "Redeem €{{amount}}",
+  "redeemConfirmTitle": "Redeem your balance?",
+  "redeemConfirmMessage": "This will create a single-use discount code for €{{amount}}. Your referral count will reset to 0.",
+  "redeemConfirm": "Yes, redeem",
+  "redeemCancel": "Cancel",
+  "redeemSuccess": "Your discount code is: {{code}} — valid for 90 days.",
+  "noBalance": "No balance to redeem yet. Share your referral code to start earning!",
+  "historyTitle": "Redemption History",
+  "historyDate": "Date",
+  "historyAmount": "Amount",
+  "historyCode": "Discount Code",
+  "noHistory": "No redemptions yet.",
+  "error": "Something went wrong. Please try again."
+}

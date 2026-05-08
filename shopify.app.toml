@@ -1,0 +1,83 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "your-shopify-client-id"
+name = "referral-program"
+application_url = "https://your-app.fly.dev"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-07"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/paid" ]
+  uri = "/webhooks/orders-paid"
+
+[access_scopes]
+scopes = "read_customers,write_customers,read_orders,write_discounts,read_discounts"
+
+  [access_scopes.customer_data]
+  reason = "Referral program needs to read order customer info and discount codes to credit referrers"
+
+    [[access_scopes.customer_data.fields]]
+    data_category = "name"
+    reason = "Identify customers for referral tracking"
+
+    [[access_scopes.customer_data.fields]]
+    data_category = "email"
+    reason = "Customer identification for referral code assignment"
+
+[auth]
+redirect_urls = [
+  "https://your-app.fly.dev/auth/callback",
+  "https://your-app.fly.dev/auth/shopify/callback",
+  "https://your-app.fly.dev/api/auth/callback"
+]
+
+# Customer metafield definitions for the referral program
+
+[customer.metafields.referral.code]
+type = "single_line_text_field"
+name = "Referral Code"
+description = "Unique referral code for this customer (e.g. REF-A7X3K)"
+
+  [customer.metafields.referral.code.access]
+  admin = "merchant_read_write"
+  customer_account = "read"
+
+[customer.metafields.referral.successful_count]
+type = "number_integer"
+name = "Successful Referrals"
+description = "Number of successful referrals since last redemption"
+
+  [customer.metafields.referral.successful_count.access]
+  admin = "merchant_read_write"
+  customer_account = "read"
+
+[customer.metafields.referral.lifetime_count]
+type = "number_integer"
+name = "Lifetime Referrals"
+description = "Total referrals ever (never resets)"
+
+  [customer.metafields.referral.lifetime_count.access]
+  admin = "merchant_read_write"
+  customer_account = "read"
+
+[customer.metafields.referral.history]
+type = "json"
+name = "Redemption History"
+description = "Array of past redemptions: [{date, amount, discountCode}]"
+
+  [customer.metafields.referral.history.access]
+  admin = "merchant_read_write"
+  customer_account = "read"
