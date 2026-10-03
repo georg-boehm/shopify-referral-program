@@ -350,7 +350,7 @@ export default function Index() {
               label="Empfehlungscode"
               name="code"
               required
-              placeholder="z.B. SARAH10"
+              placeholder="z.B. REF-A7X3K"
             />
             <s-button variant="primary" type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Wird erstellt..." : "Code erstellen"}

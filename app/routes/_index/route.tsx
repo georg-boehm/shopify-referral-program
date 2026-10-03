@@ -21,9 +21,10 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>Two-sided referral program</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Customers share a referral code; both the referrer and the new
+          customer receive credit.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
@@ -39,16 +40,20 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Automatic attribution</strong>. Referral codes are matched
+            against paid orders through HMAC-verified webhooks, with
+            self-referral and first-order checks applied before credit is
+            issued.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Credit the merchant keeps</strong>. Balances and referral
+            history live in Shopify customer metafields rather than the app
+            database, so the data survives uninstalling the app.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Self-service redemption</strong>. Customers view their code
+            and referral count in their account, and convert accumulated credit
+            into a single-use discount code.
           </li>
         </ul>
       </div>

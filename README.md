@@ -37,7 +37,7 @@ Before paying ~€60/month for a hosted solution like ReferralCandy or Friendbuy
 | Path | Purpose |
 |---|---|
 | `app/routes/app._index.tsx` | Admin UI for assigning and viewing referral codes (Polaris) |
-| `app/routes/api.referral-init.ts` | Issue a new referral code on first customer-account visit |
+| `app/routes/api.referral-init.ts` | Issue a new referral code on first customer-account visit — **unreferenced in the shipped build**, see [Known limitations](#known-limitations) |
 | `app/routes/api.referral-data.ts` | Read the customer's current referral state for the extension |
 | `app/routes/api.redeem.ts` | Convert accumulated credit into a single-use discount code |
 | `app/routes/webhooks.orders-paid.ts` | Credit referrers post-checkout; idempotent via `ProcessedOrder` table |
@@ -73,7 +73,7 @@ The program was wound down: VIP discount codes deactivated in Shopify, the app u
 
 2. **Customer Account UI Extensions are more constrained than the docs suggest.** `s-details` (collapsible sections) silently renders empty divs in production. `document` is unavailable in the sandbox. Only `s-*` web components work — native HTML throws "No component found" errors. Modal-based interaction patterns via `commandFor` / `command="--show"` are the only reliable workaround for disclosure UI. Prototype against the real component set on day one.
 
-3. **Webhook idempotency is load-bearing, not optional.** Without a `ProcessedOrder` deduplication table, Shopify's retry behavior would have caused double credit on a non-trivial fraction of referrals. The right move was catching exceptions, *logging*, and *re-throwing* — preserving the retry signal — rather than swallowing errors to return 200s.
+3. **Webhook idempotency is load-bearing — and ordering it correctly is subtler than it looks.** Without a `ProcessedOrder` deduplication table, Shopify's retry behavior would have caused double credit on a non-trivial fraction of referrals, and catching exceptions, *logging*, and *re-throwing* rather than swallowing errors to return 200s was the right instinct. But the two mechanisms as shipped work against each other: the dedup row is inserted *before* the crediting mutations, so a transient failure mid-credit re-throws, Shopify retries — and the retry short-circuits on the marker that is already there, dropping the referral silently. A dedup write has to commit *after* the side effect it guards, or the handler has to be genuinely re-entrant. Preserving a retry signal is worth nothing if the retry is a no-op. See [Known limitations](#known-limitations).
 
 4. **Don't push fraud prevention into the discount path until you have to.** The post-hoc webhook gate was the right architectural call for this scale: simple, reversible, zero checkout-killing risk. Migrating to a Shopify Function or Cart Validation Function would have introduced real customer-facing risk for marginal abuse-prevention gain at the observed volume.
 
@@ -82,6 +82,24 @@ The program was wound down: VIP discount codes deactivated in Shopify, the app u
 6. **Decommissioning is its own discipline.** Sunsetting required: deactivating all live discount codes, sending replacement vouchers to customers with earned-but-unredeemed credit, uninstalling cleanly from the store, destroying Fly resources in the right order (machine → volume → object storage → app), and removing secrets from the repository before going public. A good shutdown is as deliberate as a good launch.
 
 ---
+
+## Known limitations
+
+Documented rather than fixed — the program was decommissioned before these were addressed. Listing them because a reader evaluating the code should not have to find them, and because the shortest honest description of this project includes its defects.
+
+- **Redemption is not concurrency-safe.** `api.redeem.ts` reads `successful_count`, mints a discount worth `count × €7.50`, and only then resets the count to zero — with no transaction, lock, or idempotency key spanning those steps. Two concurrent requests both read the same balance and both mint a full-value code. The fix mirrors the pattern already used for webhooks: a `Redemption` row with a unique constraint, written before the discount is created. The same path also never inspects `userErrors` on the mutation that clears the balance, so a failed reset leaves credit redeemable twice.
+
+- **The webhook dedup marker commits before the side effect it guards.** `webhooks.orders-paid.ts` inserts `ProcessedOrder` ahead of the crediting mutations, so a failure during crediting is retried by Shopify and then short-circuited by the marker — the referral is dropped rather than retried. See [Learnings](#learnings) #3.
+
+- **`api.referral-init.ts` is unreferenced, and would be an abuse vector if it were reachable.** The customer-account extension only calls `/api/referral-data` and `/api/redeem`. The route remains an authenticated POST that mints a 20% code with `usageLimit: null` and **no minimum subtotal**, where both the admin and batch-import paths require €29.90. It should have been deleted rather than left in place.
+
+- **Self-referral prevention compares customer IDs only.** A second account or email address bypasses it. "Self-referral filtered" under [What it did](#what-it-did) should be read with that caveat — the check raised the effort required, it did not close the hole.
+
+- **The admin dashboard makes one Admin API call per referral code.** `app._index.tsx` loops sequentially on every page load (~100 round-trips for the production cohort) and a bare `catch {}` renders zeros instead of surfacing failures. This would have hit Shopify's rate limits as the cohort grew.
+
+- **Litestream replication was running without a verified restore path.** `dbsetup.js` disables the restore step after a corrupt backup, with a comment to re-enable it once the database stabilised — which never happened. Replication without a tested restore is not a backup.
+
+- **No automated tests.** The three cases worth having were a duplicate webhook crediting once, a self-referral being rejected, and concurrent redemption being unable to double-issue — which is to say, exactly the three claims this README makes most confidently.
 
 ## Repository status
 
