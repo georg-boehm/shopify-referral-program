@@ -6,6 +6,78 @@ A custom Shopify embedded app that ran a customer-account-native referral progra
 
 ---
 
+## Main flows
+
+State lives in two places, and that split is the central design decision:
+
+```
+  Shopify customer metafields     code · balance · lifetime count · history
+                                  system of record; survives app uninstall
+
+  SQLite on a Fly volume          code → customer index · processed-order
+                                  dedup · sessions
+```
+
+### 1 · Issue a code
+
+```
+                                              scripts/batch-import.ts, admin UI
+
+  cohort of ~100 customers
+          │
+          ▼
+  generate REF-A7X3K ───▶ Admin API: create discount code (20%, min €29.90)
+          │
+          ├──▶ ReferralCode row        code → customerId
+          └──▶ customer metafield      referral.code
+```
+
+### 2 · Credit a referral
+
+```
+                                                    webhooks.orders-paid.ts
+
+  referee checks out using REF-A7X3K
+          │
+          ▼
+  Shopify ─── orders/paid ──▶ HMAC verified by the SDK
+                                      │
+                                      ▼
+                             insert ProcessedOrder ─── already present?
+                             (unique constraint)        └──▶ 200, stop
+                                      │
+                                      ▼
+                             not a self-referral?    compare customer GIDs
+                             referee's first order?  re-queried from Shopify,
+                                      │              never trusted from payload
+                                      ▼
+                             metafields   successful_count  +1
+                                          lifetime_count    +1
+                                          history           append
+```
+
+The `ProcessedOrder` insert commits *before* the crediting calls it guards, so a
+failure mid-credit is retried by Shopify and then short-circuited by its own
+marker. See [Known limitations](#known-limitations).
+
+### 3 · Redeem credit
+
+```
+                                          api.referral-data.ts, api.redeem.ts
+
+  customer-account UI extension
+          │
+          ├─ GET  /api/referral-data ──▶ read metafields
+          │                              └──▶ code · balance · lifetime count
+          │
+          └─ POST /api/redeem ────────▶ mint single-use discount
+                                        (successful_count × €7.50)
+                                        └──▶ reset successful_count → 0,
+                                             append history
+```
+
+---
+
 ## Context — why this was built
 
 A small DTC brand wanted to test whether a structured customer-driven referral channel could meaningfully grow new-customer acquisition. The hypothesis: a warm word-of-mouth incentive, surfaced inside the customer's own Shopify account, would convert better and feel more native than an off-the-shelf SaaS overlay.
